@@ -49,3 +49,8 @@ No INTERNET permission was added. The existing encrypted image storage and biome
 - Offline DOCX text preview by reading `word/document.xml`; original DOCX remains intact.
 - Documents can be exported back as their original file format.
 - Backup format v5 now includes card logos, e-wallets, e-wallet logos and encrypted documents.
+
+
+## v1.3.1 build fix
+- Fixed invalid Flutter color constant `Colors.white45` in Document Vault.
+- Replaced it with `Colors.white.withValues(alpha: 0.45)`.
