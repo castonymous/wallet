@@ -12,6 +12,7 @@ import 'package:wallet/models/provider_helper.dart';
 import 'package:wallet/models/theme_provider.dart';
 import 'package:wallet/models/startup_settings_provider.dart';
 import 'package:wallet/services/card_utils.dart';
+import 'package:wallet/services/emv_nfc_service.dart';
 import 'package:wallet/widgets/full_screen_image_viewer.dart';
 import 'package:wallet/widgets/glass_credit_card.dart';
 import 'package:wallet/widgets/encrypted_image_display.dart';
@@ -396,6 +397,8 @@ class WalletEditScreenState extends State<WalletEditScreen> {
 
   File? _frontImageFile;
   File? _backImageFile;
+  bool _isNfcScanning = false;
+  final _emvNfcService = EmvNfcService();
 
   @override
   void initState() {
@@ -486,6 +489,107 @@ class WalletEditScreenState extends State<WalletEditScreen> {
       }
       if (_displayMode == 'generated') _displayMode = 'photo';
     });
+  }
+
+  Future<void> _scanExistingBankCardWithNfc() async {
+    if (_isNfcScanning) return;
+    setState(() => _isNfcScanning = true);
+
+    try {
+      final data = await _emvNfcService.scanBankCard();
+      if (!mounted) return;
+
+      if (data == null || data.pan.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Card detected, but its number was not exposed over NFC.'),
+          ),
+        );
+        return;
+      }
+
+      final saveFullNumber = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          final expiryText = data.expiry.length == 4
+              ? '${data.expiry.substring(0, 2)}/${data.expiry.substring(2, 4)}'
+              : 'Not available';
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.nfc_rounded,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'NFC card detected',
+                        style: Theme.of(sheetContext).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    data.maskedPan,
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Expiry: $expiryText'),
+                  if (data.label.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('EMV: ${data.label}'),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'CVV/CVC and PIN are not readable from a normal contactless EMV scan.',
+                    style: Theme.of(sheetContext).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(sheetContext, false),
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    label: Text('Use last 4 digits (${data.lastFour})'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(sheetContext, true),
+                    child: const Text('Use full card number'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      if (saveFullNumber == null || !mounted) return;
+      _numberController.text = saveFullNumber ? data.pan : data.lastFour;
+      if (data.expiry.isNotEmpty) _expiryController.text = data.expiry;
+      final detectedNetwork = CardUtils.detectCardNetwork(data.pan);
+      if (detectedNetwork != null) _network = detectedNetwork;
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'NFC scan failed. Make sure NFC is on and hold the card against the back of the phone. ($e)',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isNfcScanning = false);
+    }
   }
 
   void _addCustomField() {
@@ -686,6 +790,23 @@ class WalletEditScreenState extends State<WalletEditScreen> {
                   _categoryController,
                   'Category (e.g. Bank, Work, Personal)',
                   isDark,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isNfcScanning ? null : _scanExistingBankCardWithNfc,
+                    icon: _isNfcScanning
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.nfc_rounded),
+                    label: Text(
+                      _isNfcScanning ? 'Hold card near phone…' : 'Re-scan with NFC',
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(

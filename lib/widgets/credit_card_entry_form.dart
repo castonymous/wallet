@@ -7,6 +7,7 @@ import 'package:wallet/models/db_helper.dart';
 import 'package:wallet/models/theme_provider.dart';
 import 'package:wallet/services/auto_backup_service.dart';
 import 'package:wallet/services/card_utils.dart';
+import 'package:wallet/services/emv_nfc_service.dart';
 import 'package:wallet/services/image_service.dart';
 import 'package:wallet/widgets/card_appearance_selector.dart';
 import 'package:wallet/widgets/card_image_cropper.dart';
@@ -37,6 +38,8 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
   File? _backImageFile;
   bool _showAdditionalDetails = false;
   bool _isSaving = false;
+  bool _isNfcScanning = false;
+  final _emvNfcService = EmvNfcService();
 
   final _customFieldNameControllers = <TextEditingController>[];
   final _customFieldValueControllers = <TextEditingController>[];
@@ -92,6 +95,119 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
       }
       if (_displayMode == 'generated') _displayMode = 'photo';
     });
+  }
+
+  Future<void> _scanBankCardWithNfc() async {
+    if (_isNfcScanning) return;
+    setState(() => _isNfcScanning = true);
+
+    try {
+      final data = await _emvNfcService.scanBankCard();
+      if (!mounted) return;
+
+      if (data == null || data.pan.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Card detected, but its number was not exposed over NFC.'),
+          ),
+        );
+        return;
+      }
+
+      final saveFullNumber = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          final expiryText = data.expiry.length == 4
+              ? '${data.expiry.substring(0, 2)}/${data.expiry.substring(2, 4)}'
+              : 'Not available';
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.nfc_rounded,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'NFC card detected',
+                        style: Theme.of(sheetContext).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    data.maskedPan,
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Expiry: $expiryText'),
+                  if (data.label.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('EMV: ${data.label}'),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'CVV/CVC and PIN are not readable from a normal contactless EMV scan.',
+                    style: Theme.of(sheetContext).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(sheetContext, false),
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    label: Text('Use last 4 digits (${data.lastFour})'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(sheetContext, true),
+                    child: const Text('Use full card number'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      if (saveFullNumber == null || !mounted) return;
+
+      _numberController.text = saveFullNumber ? data.pan : data.lastFour;
+      if (data.expiry.isNotEmpty) _expiryController.text = data.expiry;
+
+      final detectedNetwork = CardUtils.detectCardNetwork(data.pan);
+      if (detectedNetwork != null) _network = detectedNetwork;
+
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saveFullNumber
+                ? 'Card number and expiry filled from NFC.'
+                : 'Last 4 digits and expiry filled from NFC.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'NFC scan failed. Make sure NFC is on and hold the card against the back of the phone. ($e)',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isNfcScanning = false);
+    }
   }
 
   Future<void> _addData() async {
@@ -280,6 +396,28 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
                   labelText: 'Issuer / institution (optional)',
                   hintText: 'e.g. BCA',
                 ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isNfcScanning ? null : _scanBankCardWithNfc,
+                  icon: _isNfcScanning
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.nfc_rounded),
+                  label: Text(
+                    _isNfcScanning ? 'Hold card near phone…' : 'Scan bank card with NFC',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Reads available EMV card number and expiry only. CVV/CVC is not imported.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
               TextFormField(
