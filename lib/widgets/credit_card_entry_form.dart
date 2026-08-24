@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wallet/models/db_helper.dart';
 import 'package:wallet/models/theme_provider.dart';
@@ -9,6 +10,7 @@ import 'package:wallet/services/auto_backup_service.dart';
 import 'package:wallet/services/card_utils.dart';
 import 'package:wallet/services/emv_nfc_service.dart';
 import 'package:wallet/services/image_service.dart';
+import 'package:wallet/services/vault_file_service.dart';
 import 'package:wallet/widgets/card_appearance_selector.dart';
 import 'package:wallet/widgets/card_image_cropper.dart';
 import 'package:wallet/widgets/color_picker.dart';
@@ -36,6 +38,7 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
   String _displayMode = 'photo';
   File? _frontImageFile;
   File? _backImageFile;
+  File? _logoImageFile;
   bool _showAdditionalDetails = false;
   bool _isSaving = false;
   bool _isNfcScanning = false;
@@ -95,6 +98,17 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
       }
       if (_displayMode == 'generated') _displayMode = 'photo';
     });
+  }
+
+  Future<void> _pickCustomLogo() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 95,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _logoImageFile = File(picked.path));
   }
 
   Future<void> _scanBankCardWithNfc() async {
@@ -243,6 +257,14 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
         }
       }
 
+      String? logoImagePath;
+      if (_logoImageFile != null) {
+        logoImagePath = await VaultFileService.savePrivateCopy(
+          _logoImageFile!,
+          preferredName: 'card_logo.png',
+        );
+      }
+
       final wallet = Wallet(
         name: _nameController.text.trim(),
         number: _numberController.text.trim(),
@@ -254,6 +276,7 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
         color: _selectedColor,
         frontImagePath: frontImagePath,
         backImagePath: backImagePath,
+        logoImagePath: logoImagePath,
         displayMode: _displayMode,
       );
 
@@ -319,6 +342,7 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
             wallet: previewWallet,
             previewImageFile: _frontImageFile,
             previewDisplayMode: _displayMode,
+            previewLogoFile: _logoImageFile,
             onCardTap: () {},
           ),
           const SizedBox(height: 24),
@@ -452,7 +476,7 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
                 decoration: const InputDecoration(
                   labelText: 'Card network (optional)',
                 ),
-                items: const ['visa', 'mastercard', 'rupay', 'amex', 'discover']
+                items: const ['visa', 'mastercard', 'gpn', 'jcb', 'unionpay', 'amex', 'discover', 'rupay', 'other']
                     .map(
                       (value) => DropdownMenuItem<String>(
                         value: value,
@@ -463,6 +487,30 @@ class _CreditCardEntryFormState extends State<CreditCardEntryForm> {
                 onChanged: (newValue) {
                   if (newValue != null) setState(() => _network = newValue);
                 },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickCustomLogo,
+                      icon: const Icon(Icons.image_outlined),
+                      label: Text(_logoImageFile == null ? 'Custom logo (optional)' : 'Change custom logo'),
+                    ),
+                  ),
+                  if (_logoImageFile != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Remove logo',
+                      onPressed: () => setState(() => _logoImageFile = null),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ],
+              ),
+              Text(
+                'Use this for GPN, local networks, bank logos, or any logo you want. It is stored locally and encrypted.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),

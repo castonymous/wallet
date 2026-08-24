@@ -34,3 +34,18 @@ No INTERNET permission was added. The existing encrypted image storage and biome
 - The scanner intentionally ignores PIN, CVV/CVC, cryptographic keys, transaction history, counters, and other EMV diagnostic fields.
 - Card network is detected from the scanned PAN.
 - NFC is used locally; no INTERNET permission was added.
+
+
+## OIS Wallet 1.3.0 — Indonesia Wallet + Document Vault
+
+- Custom per-card logos stored locally/encrypted; add GPN or any logo without rebuilding the APK.
+- Added manual card networks: GPN, JCB, UnionPay, Other. Network filters are generated dynamically.
+- Added E-Wallet section for GoPay, OVO, DANA, ShopeePay, LinkAja, Akulaku, Kredivo, and custom providers.
+- E-Wallet fields: phone/account, manual balance, optional paylater/credit limit, account name, notes, custom logo.
+- Added Identity PNG export to Android gallery (`Pictures/OIS Wallet`) and direct PNG share.
+- Added encrypted Document Vault for PNG/JPG/WEBP, PDF and DOCX.
+- A4 portrait/landscape document presentation.
+- Offline PDF first-page preview using Android PdfRenderer.
+- Offline DOCX text preview by reading `word/document.xml`; original DOCX remains intact.
+- Documents can be exported back as their original file format.
+- Backup format v5 now includes card logos, e-wallets, e-wallet logos and encrypted documents.

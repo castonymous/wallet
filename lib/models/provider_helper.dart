@@ -147,3 +147,73 @@ class IdentityProvider with ChangeNotifier {
   }
 }
 
+
+
+class EWalletProvider with ChangeNotifier {
+  List<EWalletAccount> items = [];
+
+  Future<void> fetchItems() async {
+    items = await EWalletDatabaseHelper.instance.getAll();
+    notifyListeners();
+  }
+
+  Future<void> deleteItem(int id) async {
+    await EWalletDatabaseHelper.instance.delete(id);
+    items.removeWhere((e) => e.id == id);
+    notifyListeners();
+    AutoBackupService.triggerBackup();
+  }
+
+  Future<void> reorderItems(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex -= 1;
+    final item = items.removeAt(oldIndex);
+    items.insert(newIndex, item);
+    await EWalletDatabaseHelper.instance.updateOrder(items);
+    notifyListeners();
+  }
+
+  List<EWalletAccount> search(String query) {
+    if (query.trim().isEmpty) return items;
+    final q = query.toLowerCase();
+    return items.where((e) =>
+      e.provider.toLowerCase().contains(q) ||
+      e.accountName.toLowerCase().contains(q) ||
+      e.phoneNumber.toLowerCase().contains(q)
+    ).toList();
+  }
+}
+
+class DocumentProvider with ChangeNotifier {
+  List<DocumentItem> items = [];
+
+  Future<void> fetchItems() async {
+    items = await DocumentDatabaseHelper.instance.getAll();
+    notifyListeners();
+  }
+
+  Future<void> deleteItem(int id) async {
+    await DocumentDatabaseHelper.instance.delete(id);
+    items.removeWhere((e) => e.id == id);
+    notifyListeners();
+    AutoBackupService.triggerBackup();
+  }
+
+  Future<void> reorderItems(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex -= 1;
+    final item = items.removeAt(oldIndex);
+    items.insert(newIndex, item);
+    await DocumentDatabaseHelper.instance.updateOrder(items);
+    notifyListeners();
+  }
+
+  List<DocumentItem> search(String query) {
+    if (query.trim().isEmpty) return items;
+    final q = query.toLowerCase();
+    return items.where((e) =>
+      e.title.toLowerCase().contains(q) ||
+      e.category.toLowerCase().contains(q) ||
+      e.fileName.toLowerCase().contains(q) ||
+      e.notes.toLowerCase().contains(q)
+    ).toList();
+  }
+}

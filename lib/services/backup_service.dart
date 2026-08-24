@@ -12,8 +12,8 @@ import 'package:wallet/services/encryption_service.dart';
 import 'package:wallet/services/saf_service.dart';
 
 class BackupService {
-  static const String _backupVersion = '4.0'; // Incremented for settings support
-  static const int _maxDecompressedSize = 100 * 1024 * 1024; // 100MB zip bomb limit
+  static const String _backupVersion = '5.0'; // Incremented for settings support
+  static const int _maxDecompressedSize = 250 * 1024 * 1024; // 250MB vault backup limit
 
   static const Set<String> _allowedSettingsKeys = {
     'themePreference',
@@ -35,6 +35,8 @@ class BackupService {
       final wallets = await DatabaseHelper.instance.getWallets();
       final passes = await PassDatabaseHelper.instance.getAllPasses();
       final identities = await IdentityDatabaseHelper.instance.getAllIdentities();
+      final ewallets = await EWalletDatabaseHelper.instance.getAll();
+      final documents = await DocumentDatabaseHelper.instance.getAll();
       
       // Fetch settings from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
@@ -57,6 +59,8 @@ class BackupService {
         'wallets': wallets.map((w) => w.toMap()).toList(),
         'passes': passes.map((p) => p.toMap()).toList(),
         'identities': identities.map((i) => i.toMap()).toList(),
+        'ewallets': ewallets.map((e) => e.toMap()).toList(),
+        'documents': documents.map((d) => d.toMap()).toList(),
         'settings': settings,
       };
 
@@ -71,6 +75,7 @@ class BackupService {
       for (final w in wallets) {
         if (w.frontImagePath != null) imagePaths.add(w.frontImagePath!);
         if (w.backImagePath != null) imagePaths.add(w.backImagePath!);
+        if (w.logoImagePath != null) imagePaths.add(w.logoImagePath!);
       }
       for (final p in passes) {
         if (p.frontImagePath != null) imagePaths.add(p.frontImagePath!);
@@ -82,11 +87,17 @@ class BackupService {
         if (i.frontImagePath != null) imagePaths.add(i.frontImagePath!);
         if (i.backImagePath != null) imagePaths.add(i.backImagePath!);
       }
+      for (final e in ewallets) {
+        if (e.logoImagePath != null) imagePaths.add(e.logoImagePath!);
+      }
+      for (final d in documents) {
+        if (d.encryptedPath.isNotEmpty) imagePaths.add(d.encryptedPath);
+      }
 
       final imageFutures = imagePaths.map((path) async {
         try {
           final decryptedBytes =
-              await EncryptionService.instance.decryptImageToBytes(path);
+              await EncryptionService.instance.decryptImageToBytes(path, useCache: false);
           if (decryptedBytes != null) {
             final fileName = p.basename(path).replaceAll('.enc', '');
             return ArchiveFile(
@@ -316,6 +327,12 @@ class BackupService {
               walletMap['backImagePath'] = oldToNewImagePaths[oldName];
             }
           }
+          if (walletMap['logoImagePath'] != null) {
+            final oldName = p.basename(walletMap['logoImagePath']).replaceAll('.enc', '');
+            if (oldToNewImagePaths.containsKey(oldName)) {
+              walletMap['logoImagePath'] = oldToNewImagePaths[oldName];
+            }
+          }
 
           await DatabaseHelper.instance.insertWallet(Wallet.fromMap(walletMap));
         } catch (_) {}
@@ -418,6 +435,31 @@ class BackupService {
           await IdentityDatabaseHelper.instance.insertIdentity(IdentityCard.fromMap(identityMap));
         } catch (_) {}
       }
+      final ewalletData = backupData['ewallets'] as List<dynamic>? ?? [];
+      toast('Restoring e-wallets (${ewalletData.length})...');
+      for (final raw in ewalletData) {
+        try {
+          final map = Map<String, dynamic>.from(raw);
+          if (map['logoImagePath'] != null) {
+            final oldName = p.basename(map['logoImagePath']).replaceAll('.enc', '');
+            if (oldToNewImagePaths.containsKey(oldName)) map['logoImagePath'] = oldToNewImagePaths[oldName];
+          }
+          await EWalletDatabaseHelper.instance.insert(EWalletAccount.fromMap(map));
+        } catch (_) {}
+      }
+
+      final documentData = backupData['documents'] as List<dynamic>? ?? [];
+      toast('Restoring documents (${documentData.length})...');
+      for (final raw in documentData) {
+        try {
+          final map = Map<String, dynamic>.from(raw);
+          if (map['encryptedPath'] != null) {
+            final oldName = p.basename(map['encryptedPath']).replaceAll('.enc', '');
+            if (oldToNewImagePaths.containsKey(oldName)) map['encryptedPath'] = oldToNewImagePaths[oldName];
+          }
+          await DocumentDatabaseHelper.instance.insert(DocumentItem.fromMap(map));
+        } catch (_) {}
+      }
       toast('Restore complete!');
     } catch (e, st) {
       final msg = 'Restore failed: $e';
@@ -433,6 +475,8 @@ class BackupService {
       final wallets = await DatabaseHelper.instance.getWallets();
       final passes = await PassDatabaseHelper.instance.getAllPasses();
       final identities = await IdentityDatabaseHelper.instance.getAllIdentities();
+      final ewallets = await EWalletDatabaseHelper.instance.getAll();
+      final documents = await DocumentDatabaseHelper.instance.getAll();
 
       final prefs = await SharedPreferences.getInstance();
       final settings = <String, dynamic>{};
@@ -457,6 +501,8 @@ class BackupService {
         'wallets': wallets.map((w) => w.toMap()).toList(),
         'passes': passes.map((p) => p.toMap()).toList(),
         'identities': identities.map((i) => i.toMap()).toList(),
+        'ewallets': ewallets.map((e) => e.toMap()).toList(),
+        'documents': documents.map((d) => d.toMap()).toList(),
         'settings': settings,
       };
 
@@ -470,6 +516,7 @@ class BackupService {
       for (final w in wallets) {
         if (w.frontImagePath != null) imagePaths.add(w.frontImagePath!);
         if (w.backImagePath != null) imagePaths.add(w.backImagePath!);
+        if (w.logoImagePath != null) imagePaths.add(w.logoImagePath!);
       }
       for (final p in passes) {
         if (p.frontImagePath != null) imagePaths.add(p.frontImagePath!);
@@ -481,11 +528,17 @@ class BackupService {
         if (i.frontImagePath != null) imagePaths.add(i.frontImagePath!);
         if (i.backImagePath != null) imagePaths.add(i.backImagePath!);
       }
+      for (final e in ewallets) {
+        if (e.logoImagePath != null) imagePaths.add(e.logoImagePath!);
+      }
+      for (final d in documents) {
+        if (d.encryptedPath.isNotEmpty) imagePaths.add(d.encryptedPath);
+      }
 
       final imageFutures = imagePaths.map((path) async {
         try {
           final decryptedBytes =
-              await EncryptionService.instance.decryptImageToBytes(path);
+              await EncryptionService.instance.decryptImageToBytes(path, useCache: false);
           if (decryptedBytes != null) {
             final fileName = p.basename(path).replaceAll('.enc', '');
             return ArchiveFile(
@@ -524,6 +577,10 @@ class BackupService {
     await passDb.delete('passes');
     final identityDb = await IdentityDatabaseHelper.instance.database;
     await identityDb.delete('identities');
+    final ewalletDb = await EWalletDatabaseHelper.instance.database;
+    await ewalletDb.delete('ewallets');
+    final documentDb = await DocumentDatabaseHelper.instance.database;
+    await documentDb.delete('documents');
 
     final appDir = await getApplicationDocumentsDirectory();
     final dir = Directory(appDir.path);
@@ -537,6 +594,11 @@ class BackupService {
       if (deleteFutures.isNotEmpty) {
         await Future.wait(deleteFutures);
       }
+    }
+
+    final vaultDir = Directory(p.join(appDir.path, 'vault_files'));
+    if (await vaultDir.exists()) {
+      await vaultDir.delete(recursive: true);
     }
 
     // Clear settings
@@ -570,7 +632,9 @@ class BackupService {
     final hasPasses = data.containsKey('passes') && data['passes'] is List;
     final hasIdentities = data.containsKey('identities') && data['identities'] is List;
     final hasLoyalties = data.containsKey('loyalties') && data['loyalties'] is List;
-    if (!hasWallets && !hasPasses && !hasIdentities && !hasLoyalties) return false;
+    final hasEwallets = data.containsKey('ewallets') && data['ewallets'] is List;
+    final hasDocuments = data.containsKey('documents') && data['documents'] is List;
+    if (!hasWallets && !hasPasses && !hasIdentities && !hasLoyalties && !hasEwallets && !hasDocuments) return false;
     // Validate wallet entries have required fields
     if (hasWallets) {
       for (final w in data['wallets'] as List) {
@@ -590,6 +654,16 @@ class BackupService {
       for (final i in data['identities'] as List) {
         if (i is! Map<String, dynamic>) return false;
         if (!i.containsKey('name') || !i.containsKey('value')) return false;
+      }
+    }
+    if (hasEwallets) {
+      for (final e in data['ewallets'] as List) {
+        if (e is! Map<String, dynamic> || !e.containsKey('provider')) return false;
+      }
+    }
+    if (hasDocuments) {
+      for (final d in data['documents'] as List) {
+        if (d is! Map<String, dynamic> || !d.containsKey('title') || !d.containsKey('encryptedPath')) return false;
       }
     }
     return true;

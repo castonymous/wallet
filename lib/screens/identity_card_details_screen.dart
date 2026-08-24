@@ -10,6 +10,7 @@ import 'package:wallet/widgets/full_screen_image_viewer.dart';
 import 'package:wallet/screens/homescreen.dart';
 import 'package:wallet/widgets/identity_card_entry_form.dart';
 import 'package:wallet/screens/share_secure_screen.dart';
+import 'package:wallet/services/vault_file_service.dart';
 
 class IdentityCardDetailScreen extends StatefulWidget {
   final IdentityCard card;
@@ -99,6 +100,93 @@ class _IdentityCardDetailScreenState extends State<IdentityCardDetailScreen> {
     );
   }
 
+  Future<void> _exportIdentityImage({
+    required String path,
+    required String side,
+    required bool share,
+  }) async {
+    try {
+      final base = '${currentCard.cardType}_${currentCard.name}_$side';
+      final result = share
+          ? await VaultFileService.shareEncryptedImageAsPng(path, fileName: base)
+          : await VaultFileService.saveEncryptedImageAsPngToGallery(path, fileName: base);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result == null
+                ? 'Export dibatalkan atau gagal.'
+                : share
+                    ? 'PNG siap dibagikan.'
+                    : 'PNG tersimpan di Pictures/OIS Wallet.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export PNG: $e')));
+    }
+  }
+
+  void _showPngActions() {
+    final hasFront = _isPathValid(currentCard.frontImagePath);
+    final hasBack = _isPathValid(currentCard.backImagePath);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text('Export identitas sebagai PNG', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('Salinan PNG hanya dibuat ketika lo memilih Save/Share.'),
+              ),
+              if (hasFront)
+                ListTile(
+                  leading: const Icon(Icons.download_outlined),
+                  title: const Text('Save Front PNG ke galeri'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _exportIdentityImage(path: currentCard.frontImagePath!, side: 'Front', share: false);
+                  },
+                ),
+              if (hasBack)
+                ListTile(
+                  leading: const Icon(Icons.download_outlined),
+                  title: const Text('Save Back PNG ke galeri'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _exportIdentityImage(path: currentCard.backImagePath!, side: 'Back', share: false);
+                  },
+                ),
+              if (hasFront)
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Share Front PNG'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _exportIdentityImage(path: currentCard.frontImagePath!, side: 'Front', share: true);
+                  },
+                ),
+              if (hasBack)
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Share Back PNG'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _exportIdentityImage(path: currentCard.backImagePath!, side: 'Back', share: true);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -125,6 +213,19 @@ class _IdentityCardDetailScreenState extends State<IdentityCardDetailScreen> {
           ),
         ),
         actions: [
+          if (_isPathValid(currentCard.frontImagePath) || _isPathValid(currentCard.backImagePath))
+            Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.078) : Colors.black.withValues(alpha: 0.051),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                tooltip: 'Save / Share PNG',
+                icon: Icon(Icons.download_rounded, color: isDark ? Colors.white : Colors.black),
+                onPressed: _showPngActions,
+              ),
+            ),
           Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(

@@ -19,6 +19,7 @@ class Wallet {
   final String? color;
   final String? frontImagePath;
   final String? backImagePath;
+  final String? logoImagePath;
   final String displayMode;
   int orderIndex;
 
@@ -40,6 +41,7 @@ class Wallet {
     this.color,
     this.frontImagePath,
     this.backImagePath,
+    this.logoImagePath,
     this.displayMode = 'generated',
     this.orderIndex = 0,
   });
@@ -63,6 +65,7 @@ class Wallet {
       'color': color,
       'frontImagePath': frontImagePath,
       'backImagePath': backImagePath,
+      'logoImagePath': logoImagePath,
       'displayMode': displayMode,
       'orderIndex': orderIndex,
     };
@@ -90,6 +93,7 @@ class Wallet {
       'color': enc.encryptText(color),
       'frontImagePath': frontImagePath,
       'backImagePath': backImagePath,
+      'logoImagePath': logoImagePath,
       'displayMode': enc.encryptText(displayMode),
       'orderIndex': orderIndex,
     };
@@ -116,6 +120,7 @@ class Wallet {
       color: map['color'],
       frontImagePath: map['frontImagePath'],
       backImagePath: map['backImagePath'],
+      logoImagePath: map['logoImagePath'],
       displayMode: map['displayMode'] ?? ((map['frontImagePath'] as String?)?.isNotEmpty == true ? 'photo' : 'generated'),
       orderIndex: map['orderIndex'] ?? 0,
     );
@@ -143,6 +148,7 @@ class Wallet {
       color: enc.decryptText(map['color']),
       frontImagePath: map['frontImagePath'],
       backImagePath: map['backImagePath'],
+      logoImagePath: map['logoImagePath'],
       displayMode: enc.decryptText(map['displayMode']) ?? ((map['frontImagePath'] as String?)?.isNotEmpty == true ? 'photo' : 'generated'),
       orderIndex: map['orderIndex'] ?? 0,
     );
@@ -164,6 +170,7 @@ class Wallet {
       color: enc.decryptText(map['color']),
       frontImagePath: map['frontImagePath'],
       backImagePath: map['backImagePath'],
+      logoImagePath: map['logoImagePath'],
       displayMode: enc.decryptText(map['displayMode']) ?? ((map['frontImagePath'] as String?)?.isNotEmpty == true ? 'photo' : 'generated'),
       orderIndex: map['orderIndex'] ?? 0,
     );

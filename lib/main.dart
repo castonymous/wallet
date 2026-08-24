@@ -35,6 +35,8 @@ void main() async {
         ChangeNotifierProvider(create: (context) => WalletProvider()),
         ChangeNotifierProvider(create: (context) => PassProvider()),
         ChangeNotifierProvider(create: (context) => IdentityProvider()),
+        ChangeNotifierProvider(create: (context) => EWalletProvider()),
+        ChangeNotifierProvider(create: (context) => DocumentProvider()),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: startupProvider),
         ChangeNotifierProvider.value(value: autoBackupProvider),

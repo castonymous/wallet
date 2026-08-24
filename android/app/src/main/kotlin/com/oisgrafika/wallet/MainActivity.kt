@@ -8,6 +8,14 @@ import android.view.WindowManager
 import android.os.Bundle
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import java.io.ByteArrayOutputStream
+import java.io.File
+import android.os.ParcelFileDescriptor
+import android.graphics.pdf.PdfRenderer
+import android.graphics.Bitmap
+import android.provider.MediaStore
+import android.os.Build
+import android.content.ContentValues
 import android.app.Activity
 import android.net.Uri
 import java.io.OutputStream
@@ -114,6 +122,93 @@ class MainActivity: FlutterFragmentActivity()
                 }
               } else {
                 result.error("INVALID_ARGUMENTS", "Missing uri or filename", null)
+              }
+            }
+            "renderPdfFirstPage" -> {
+              val bytes = call.argument<ByteArray>("bytes")
+              if (bytes == null) {
+                result.error("INVALID_ARGUMENTS", "Missing PDF bytes", null)
+              } else {
+                var tempFile: File? = null
+                var descriptor: ParcelFileDescriptor? = null
+                var renderer: PdfRenderer? = null
+                try {
+                  tempFile = File(cacheDir, "ois_preview_${System.nanoTime()}.pdf")
+                  tempFile.writeBytes(bytes)
+                  descriptor = ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY)
+                  renderer = PdfRenderer(descriptor)
+                  if (renderer.pageCount <= 0) throw Exception("PDF has no pages")
+                  val page = renderer.openPage(0)
+                  val targetWidth = 1200
+                  val targetHeight = ((page.height.toDouble() / page.width.toDouble()) * targetWidth).toInt().coerceAtLeast(1)
+                  val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                  bitmap.eraseColor(android.graphics.Color.WHITE)
+                  page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                  page.close()
+                  val output = ByteArrayOutputStream()
+                  bitmap.compress(Bitmap.CompressFormat.PNG, 92, output)
+                  bitmap.recycle()
+                  result.success(output.toByteArray())
+                } catch (e: Exception) {
+                  result.error("PDF_RENDER_FAILED", e.message, null)
+                } finally {
+                  try { renderer?.close() } catch (_: Exception) {}
+                  try { descriptor?.close() } catch (_: Exception) {}
+                  try { tempFile?.delete() } catch (_: Exception) {}
+                }
+              }
+            }
+            "saveImageToGallery" -> {
+              val bytes = call.argument<ByteArray>("bytes")
+              val name = call.argument<String>("name")
+              if (bytes == null || name == null) {
+                result.error("INVALID_ARGUMENTS", "Missing bytes or name", null)
+              } else {
+                try {
+                  val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                      put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/OIS Wallet")
+                      put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                  }
+                  val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                  } else {
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                  }
+                  val uri = contentResolver.insert(collection, values)
+                    ?: throw Exception("Unable to create gallery item")
+                  contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    ?: throw Exception("Unable to open gallery output stream")
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val done = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+                    contentResolver.update(uri, done, null, null)
+                  }
+                  result.success(uri.toString())
+                } catch (e: Exception) {
+                  result.error("GALLERY_SAVE_FAILED", e.message, null)
+                }
+              }
+            }
+            "shareMediaUri" -> {
+              val uriString = call.argument<String>("uri")
+              val mimeType = call.argument<String>("mimeType") ?: "image/png"
+              if (uriString == null) {
+                result.error("INVALID_ARGUMENTS", "Missing uri", null)
+              } else {
+                try {
+                  val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                  }
+                  startActivity(Intent.createChooser(sendIntent, "Share from OIS Wallet"))
+                  result.success(true)
+                } catch (e: Exception) {
+                  result.error("SHARE_FAILED", e.message, null)
+                }
               }
             }
             else -> result.notImplemented()

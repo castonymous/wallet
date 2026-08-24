@@ -528,9 +528,9 @@ class EncryptionService {
 
   /// Decrypt an encrypted image file and return the raw bytes.
   /// Uses a memory cache and offloads to an isolate.
-  Future<Uint8List?> decryptImageToBytes(String encryptedFilePath) async {
+  Future<Uint8List?> decryptImageToBytes(String encryptedFilePath, {bool useCache = true}) async {
     // 1. Check memory cache first
-    if (_imageCache.containsKey(encryptedFilePath)) {
+    if (useCache && _imageCache.containsKey(encryptedFilePath)) {
       // Move to end (most recently used)
       final bytes = _imageCache.remove(encryptedFilePath)!;
       _imageCache[encryptedFilePath] = bytes;
@@ -551,7 +551,7 @@ class EncryptionService {
       if (!_isEncrypted(content)) {
         // File is not encrypted, read as raw bytes
         final bytes = await encryptedFile.readAsBytes();
-        _addToCache(encryptedFilePath, bytes);
+        if (useCache) _addToCache(encryptedFilePath, bytes);
         return bytes;
       }
 
@@ -576,8 +576,8 @@ class EncryptionService {
 
       final result = Uint8List.fromList(decryptedBytes);
 
-      // 3. Cache the result
-      _addToCache(encryptedFilePath, result);
+      // 3. Cache the result only for UI images. Large document files skip it.
+      if (useCache) _addToCache(encryptedFilePath, result);
 
       return result;
     } catch (e) {

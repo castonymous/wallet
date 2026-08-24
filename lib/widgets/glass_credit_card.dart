@@ -14,6 +14,7 @@ class GlassCreditCard extends StatefulWidget {
   /// Saved cards continue to use encrypted image storage.
   final File? previewImageFile;
   final String? previewDisplayMode;
+  final File? previewLogoFile;
 
   const GlassCreditCard({
     super.key,
@@ -22,6 +23,7 @@ class GlassCreditCard extends StatefulWidget {
     required this.onCardTap,
     this.previewImageFile,
     this.previewDisplayMode,
+    this.previewLogoFile,
   });
 
   @override
@@ -155,7 +157,7 @@ class _GlassCreditCardState extends State<GlassCreditCard> {
               ),
               SizedBox(
                 height: 36,
-                child: _NetworkLogo(network: widget.wallet.network),
+                child: _CardLogo(wallet: widget.wallet, previewLogoFile: widget.previewLogoFile),
               ),
             ],
           ),
@@ -262,6 +264,30 @@ class _TemplateReadabilityLayer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CardLogo extends StatelessWidget {
+  final Wallet wallet;
+  final File? previewLogoFile;
+
+  const _CardLogo({required this.wallet, this.previewLogoFile});
+
+  @override
+  Widget build(BuildContext context) {
+    if (previewLogoFile != null) {
+      return Image.file(previewLogoFile!, fit: BoxFit.contain, filterQuality: FilterQuality.high);
+    }
+    final customPath = wallet.logoImagePath;
+    if (customPath != null && customPath.isNotEmpty) {
+      return EncryptedImageDisplay(
+        imagePath: customPath,
+        fit: BoxFit.contain,
+        cacheHeight: 160,
+        cacheWidth: 320,
+      );
+    }
+    return _NetworkLogo(network: wallet.network);
   }
 }
 

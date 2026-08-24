@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:wallet/services/clipboard_service.dart';
 import 'package:provider/provider.dart';
 import 'package:wallet/services/image_service.dart';
+import 'package:wallet/services/vault_file_service.dart';
 import 'package:wallet/widgets/color_picker.dart';
 import 'package:wallet/widgets/card_appearance_selector.dart';
 import 'package:wallet/widgets/card_image_cropper.dart';
@@ -397,6 +399,8 @@ class WalletEditScreenState extends State<WalletEditScreen> {
 
   File? _frontImageFile;
   File? _backImageFile;
+  File? _logoImageFile;
+  bool _removeExistingLogo = false;
   bool _isNfcScanning = false;
   final _emvNfcService = EmvNfcService();
 
@@ -488,6 +492,20 @@ class WalletEditScreenState extends State<WalletEditScreen> {
         _backImageFile = cropped;
       }
       if (_displayMode == 'generated') _displayMode = 'photo';
+    });
+  }
+
+  Future<void> _pickCustomLogo() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 95,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _logoImageFile = File(picked.path);
+      _removeExistingLogo = false;
     });
   }
 
@@ -652,6 +670,14 @@ class WalletEditScreenState extends State<WalletEditScreen> {
         backImagePath = null;
       }
 
+      String? logoImagePath = _removeExistingLogo ? null : widget.wallet.logoImagePath;
+      if (_logoImageFile != null) {
+        logoImagePath = await VaultFileService.savePrivateCopy(
+          _logoImageFile!,
+          preferredName: 'card_logo.png',
+        );
+      }
+
       final updatedWallet = Wallet(
         id: widget.wallet.id,
         name: _nameController.text,
@@ -670,6 +696,7 @@ class WalletEditScreenState extends State<WalletEditScreen> {
         color: _selectedColor,
         frontImagePath: frontImagePath,
         backImagePath: backImagePath,
+        logoImagePath: logoImagePath,
         displayMode: _displayMode,
         orderIndex: widget.wallet.orderIndex,
       );
@@ -679,6 +706,9 @@ class WalletEditScreenState extends State<WalletEditScreen> {
       }
       if (widget.wallet.backImagePath != backImagePath) {
         await DatabaseHelper.deleteImageFile(widget.wallet.backImagePath);
+      }
+      if (widget.wallet.logoImagePath != logoImagePath) {
+        await DatabaseHelper.deleteImageFile(widget.wallet.logoImagePath);
       }
 
       await provider.fetchWallets();
@@ -711,6 +741,7 @@ class WalletEditScreenState extends State<WalletEditScreen> {
       category: _categoryController.text,
       color: _selectedColor,
       frontImagePath: existingFrontPath,
+      logoImagePath: _removeExistingLogo ? null : widget.wallet.logoImagePath,
       displayMode: _displayMode,
     );
 
@@ -758,6 +789,7 @@ class WalletEditScreenState extends State<WalletEditScreen> {
               wallet: previewWallet,
               previewImageFile: previewFile,
               previewDisplayMode: _displayMode,
+              previewLogoFile: _logoImageFile,
               onCardTap: () {},
             ),
             const SizedBox(height: 24),
@@ -854,6 +886,40 @@ class WalletEditScreenState extends State<WalletEditScreen> {
                     setState(() => _network = newValue);
                   }
                 }),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                      ),
+                      child: _logoImageFile != null
+                          ? ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.file(_logoImageFile!, fit: BoxFit.contain))
+                          : (!_removeExistingLogo && (widget.wallet.logoImagePath?.isNotEmpty ?? false))
+                              ? ClipRRect(borderRadius: BorderRadius.circular(13), child: EncryptedImageDisplay(imagePath: widget.wallet.logoImagePath!, fit: BoxFit.contain))
+                              : const Icon(Icons.image_outlined),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickCustomLogo,
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('Custom logo'),
+                      ),
+                    ),
+                    if (_logoImageFile != null || (!_removeExistingLogo && (widget.wallet.logoImagePath?.isNotEmpty ?? false)))
+                      IconButton(
+                        tooltip: 'Remove logo',
+                        onPressed: () => setState(() { _logoImageFile = null; _removeExistingLogo = true; }),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                  ],
+                ),
+                Text('GPN atau logo lain bisa dipilih dari galeri dan disimpan lokal terenkripsi.', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
             _LiquidGlassDetailSection(
@@ -1075,7 +1141,7 @@ class WalletEditScreenState extends State<WalletEditScreen> {
         ),
         dropdownColor: isDark ? const Color(0xFF0A0A0A) : Colors.white,
         style: TextStyle(color: textColor),
-        items: ['visa', 'mastercard', 'rupay', 'amex', 'discover'].map((
+        items: ['visa', 'mastercard', 'gpn', 'jcb', 'unionpay', 'amex', 'discover', 'rupay', 'other'].map((
           String value,
         ) {
           return DropdownMenuItem<String>(

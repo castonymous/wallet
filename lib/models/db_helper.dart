@@ -1,9 +1,13 @@
 export 'wallet.dart';
 export 'pass.dart';
 export 'identity_card.dart';
+export 'ewallet.dart';
+export 'document_item.dart';
 import 'wallet.dart';
 import 'pass.dart';
 import 'identity_card.dart';
+import 'ewallet.dart';
+import 'document_item.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -35,7 +39,7 @@ class DatabaseHelper {
     final path = join(directory.path, 'walletbox.db');
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE wallets(
@@ -56,6 +60,7 @@ class DatabaseHelper {
             color TEXT,
             frontImagePath TEXT,
             backImagePath TEXT,
+            logoImagePath TEXT,
             displayMode TEXT,
             orderIndex INTEGER DEFAULT 0
           )
@@ -105,6 +110,9 @@ class DatabaseHelper {
         if (oldVersion < 8) {
           await db.execute('ALTER TABLE wallets ADD COLUMN displayMode TEXT;');
         }
+        if (oldVersion < 9) {
+          await db.execute('ALTER TABLE wallets ADD COLUMN logoImagePath TEXT;');
+        }
       },
     );
   }
@@ -142,7 +150,7 @@ class DatabaseHelper {
     Database db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'wallets',
-      columns: ['id', 'name', 'number', 'expiry', 'network', 'issuer', 'cardtype', 'category', 'color', 'frontImagePath', 'backImagePath', 'displayMode', 'orderIndex'],
+      columns: ['id', 'name', 'number', 'expiry', 'network', 'issuer', 'cardtype', 'category', 'color', 'frontImagePath', 'backImagePath', 'logoImagePath', 'displayMode', 'orderIndex'],
       orderBy: 'orderIndex ASC',
     );
     return List.generate(maps.length, (i) => Wallet.fromEncryptedMapSummary(maps[i]));
@@ -165,7 +173,7 @@ class DatabaseHelper {
     Database db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'wallets',
-      columns: ['frontImagePath', 'backImagePath'],
+      columns: ['frontImagePath', 'backImagePath', 'logoImagePath'],
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -173,6 +181,7 @@ class DatabaseHelper {
 
     await deleteImageFile(maps[0]['frontImagePath'] as String?);
     await deleteImageFile(maps[0]['backImagePath'] as String?);
+    await deleteImageFile(maps[0]['logoImagePath'] as String?);
 
     return await db.delete('wallets', where: 'id = ?', whereArgs: [id]);
   }
@@ -478,3 +487,137 @@ class IdentityDatabaseHelper {
 }
 
 
+
+class EWalletDatabaseHelper {
+  static final EWalletDatabaseHelper instance = EWalletDatabaseHelper._init();
+  static Database? _database;
+  EWalletDatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    final directory = await _DirectoryCache.docs;
+    _database = await openDatabase(
+      join(directory.path, 'ewallets.db'),
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE ewallets(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT,
+            accountName TEXT,
+            phoneNumber TEXT,
+            balance TEXT,
+            limitAmount TEXT,
+            notes TEXT,
+            logoImagePath TEXT,
+            orderIndex INTEGER DEFAULT 0
+          )
+        ''');
+        await db.execute('CREATE INDEX idx_ewallets_order ON ewallets(orderIndex);');
+      },
+    );
+    return _database!;
+  }
+
+  Future<int> insert(EWalletAccount item) async {
+    final db = await database;
+    return db.insert('ewallets', item.toEncryptedMap());
+  }
+
+  Future<List<EWalletAccount>> getAll() async {
+    final db = await database;
+    final rows = await db.query('ewallets', orderBy: 'orderIndex ASC');
+    return rows.map(EWalletAccount.fromEncryptedMap).toList();
+  }
+
+  Future<int> update(EWalletAccount item) async {
+    final db = await database;
+    return db.update('ewallets', item.toEncryptedMap(), where: 'id = ?', whereArgs: [item.id]);
+  }
+
+  Future<void> delete(int id) async {
+    final db = await database;
+    final rows = await db.query('ewallets', columns: ['logoImagePath'], where: 'id = ?', whereArgs: [id]);
+    if (rows.isNotEmpty) {
+      await DatabaseHelper.deleteImageFile(rows.first['logoImagePath'] as String?);
+    }
+    await db.delete('ewallets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateOrder(List<EWalletAccount> items) async {
+    final db = await database;
+    final batch = db.batch();
+    for (var i = 0; i < items.length; i++) {
+      items[i].orderIndex = i;
+      batch.update('ewallets', {'orderIndex': i}, where: 'id = ?', whereArgs: [items[i].id]);
+    }
+    await batch.commit(noResult: true);
+  }
+}
+
+class DocumentDatabaseHelper {
+  static final DocumentDatabaseHelper instance = DocumentDatabaseHelper._init();
+  static Database? _database;
+  DocumentDatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    final directory = await _DirectoryCache.docs;
+    _database = await openDatabase(
+      join(directory.path, 'documents.db'),
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE documents(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            category TEXT,
+            fileName TEXT,
+            fileType TEXT,
+            orientation TEXT,
+            encryptedPath TEXT,
+            notes TEXT,
+            orderIndex INTEGER DEFAULT 0
+          )
+        ''');
+        await db.execute('CREATE INDEX idx_documents_order ON documents(orderIndex);');
+      },
+    );
+    return _database!;
+  }
+
+  Future<int> insert(DocumentItem item) async {
+    final db = await database;
+    return db.insert('documents', item.toEncryptedMap());
+  }
+
+  Future<List<DocumentItem>> getAll() async {
+    final db = await database;
+    final rows = await db.query('documents', orderBy: 'orderIndex ASC');
+    return rows.map(DocumentItem.fromEncryptedMap).toList();
+  }
+
+  Future<int> update(DocumentItem item) async {
+    final db = await database;
+    return db.update('documents', item.toEncryptedMap(), where: 'id = ?', whereArgs: [item.id]);
+  }
+
+  Future<void> delete(int id) async {
+    final db = await database;
+    final rows = await db.query('documents', columns: ['encryptedPath'], where: 'id = ?', whereArgs: [id]);
+    if (rows.isNotEmpty) {
+      await DatabaseHelper.deleteImageFile(rows.first['encryptedPath'] as String?);
+    }
+    await db.delete('documents', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateOrder(List<DocumentItem> items) async {
+    final db = await database;
+    final batch = db.batch();
+    for (var i = 0; i < items.length; i++) {
+      items[i].orderIndex = i;
+      batch.update('documents', {'orderIndex': i}, where: 'id = ?', whereArgs: [items[i].id]);
+    }
+    await batch.commit(noResult: true);
+  }
+}

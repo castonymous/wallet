@@ -60,6 +60,10 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Passes';
       case 2:
         return 'Identity';
+      case 3:
+        return 'E-Wallet';
+      case 4:
+        return 'Documents';
       default:
         return 'Payments';
     }
@@ -412,6 +416,14 @@ class _SettingsPageState extends State<SettingsPage> {
               provider.setDefaultScreen(v);
               Navigator.pop(context);
             }, isDark),
+            _buildRadioOption('E-Wallet', 3, provider.defaultScreenIndex, (v) {
+              provider.setDefaultScreen(v);
+              Navigator.pop(context);
+            }, isDark),
+            _buildRadioOption('Documents', 4, provider.defaultScreenIndex, (v) {
+              provider.setDefaultScreen(v);
+              Navigator.pop(context);
+            }, isDark),
           ],
         ),
       ),
@@ -732,6 +744,8 @@ class _SettingsPageState extends State<SettingsPage> {
             final walletProvider = context.read<WalletProvider>();
             final passProvider = context.read<PassProvider>();
             final identityProvider = context.read<IdentityProvider>();
+            final ewalletProvider = context.read<EWalletProvider>();
+            final documentProvider = context.read<DocumentProvider>();
             final tProvider = context.read<ThemeProvider>();
             final sProvider = context.read<StartupSettingsProvider>();
 
@@ -747,6 +761,8 @@ class _SettingsPageState extends State<SettingsPage> {
             walletProvider.fetchWallets();
             passProvider.fetchPasses();
             identityProvider.fetchIdentities();
+            ewalletProvider.fetchItems();
+            documentProvider.fetchItems();
             await tProvider.init();
             await sProvider.loadStartupSettings();
 
@@ -772,7 +788,7 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: isDark ? const Color(0xFF0A0A0A) : Colors.white,
         title: const Text('Delete All Data?'),
         content: const Text(
-          'This will permanently delete all wallets, passes, and images.',
+          'This will permanently delete all cards, passes, identities, e-wallets, documents, and encrypted files.',
         ),
         actions: [
           TextButton(
@@ -796,6 +812,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final walletProvider = context.read<WalletProvider>();
     final passProvider = context.read<PassProvider>();
     final identityProvider = context.read<IdentityProvider>();
+    final ewalletProvider = context.read<EWalletProvider>();
+    final documentProvider = context.read<DocumentProvider>();
 
     try {
       // Bulk delete wallets
@@ -813,6 +831,7 @@ class _SettingsPageState extends State<SettingsPage> {
         for (var w in wallets) {
           await DatabaseHelper.deleteImageFile(w.frontImagePath);
           await DatabaseHelper.deleteImageFile(w.backImagePath);
+          await DatabaseHelper.deleteImageFile(w.logoImagePath);
         }
       }
 
@@ -852,6 +871,16 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
 
+      final ewallets = await EWalletDatabaseHelper.instance.getAll();
+      for (final e in ewallets) {
+        if (e.id != null) await EWalletDatabaseHelper.instance.delete(e.id!);
+      }
+
+      final documents = await DocumentDatabaseHelper.instance.getAll();
+      for (final d in documents) {
+        if (d.id != null) await DocumentDatabaseHelper.instance.delete(d.id!);
+      }
+
       final directory = await getApplicationDocumentsDirectory();
       final dir = Directory(directory.path);
       if (await dir.exists()) {
@@ -868,6 +897,8 @@ class _SettingsPageState extends State<SettingsPage> {
         if (deleteFutures.isNotEmpty) {
           await Future.wait(deleteFutures);
         }
+        final vaultDir = Directory('${directory.path}${Platform.pathSeparator}vault_files');
+        if (await vaultDir.exists()) await vaultDir.delete(recursive: true);
       }
 
       if (!mounted) return;
@@ -875,6 +906,8 @@ class _SettingsPageState extends State<SettingsPage> {
       walletProvider.fetchWallets();
       passProvider.fetchPasses();
       identityProvider.fetchIdentities();
+      ewalletProvider.fetchItems();
+      documentProvider.fetchItems();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('All data deleted.')));

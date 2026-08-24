@@ -22,6 +22,8 @@ import '../models/theme_provider.dart';
 import '../pages/walletdetails.dart';
 import 'package:wallet/widgets/identity_card_widget.dart';
 import 'package:wallet/screens/identity_card_details_screen.dart';
+import 'package:wallet/screens/ewallet_screen.dart';
+import 'package:wallet/screens/document_vault_screen.dart';
 import 'package:wallet/services/auto_backup_service.dart';
 
 /// Smooth route builder — used across the app for premium transitions
@@ -71,6 +73,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<WalletProvider>().fetchWallets();
       context.read<PassProvider>().fetchPasses();
       context.read<IdentityProvider>().fetchIdentities();
+      context.read<EWalletProvider>().fetchItems();
+      context.read<DocumentProvider>().fetchItems();
 
       // Initialize selected index from startup settings
       final startupProvider = context.read<StartupSettingsProvider>();
@@ -644,16 +648,29 @@ class _HomeScreenState extends State<HomeScreen> {
             final walletProvider = context.read<WalletProvider>();
             final passProvider = context.read<PassProvider>();
             final identityProvider = context.read<IdentityProvider>();
-            final result = await Navigator.push(
-              context,
-              SmoothPageRoute(
-                page: AddCardScreen(initialTabIndex: effectiveIndex),
-              ),
-            );
+            bool? result;
+            if (effectiveIndex == 3) {
+              result = await Navigator.push<bool>(
+                context,
+                SmoothPageRoute(page: const EWalletEditScreen()),
+              );
+            } else if (effectiveIndex == 4) {
+              result = await Navigator.push<bool>(
+                context,
+                SmoothPageRoute(page: const DocumentEditScreen()),
+              );
+            } else {
+              result = await Navigator.push<bool>(
+                context,
+                SmoothPageRoute(page: AddCardScreen(initialTabIndex: effectiveIndex)),
+              );
+            }
             if (result == true && mounted) {
               await walletProvider.fetchWallets();
               await passProvider.fetchPasses();
               await identityProvider.fetchIdentities();
+              await context.read<EWalletProvider>().fetchItems();
+              await context.read<DocumentProvider>().fetchItems();
             }
           },
           child: const Icon(Icons.add_rounded),
@@ -666,6 +683,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildPaymentsTab(context),
           _buildPassesTab(context),
           _buildIdentitiesTab(context),
+          _buildEWalletsTab(context),
+          _buildDocumentsTab(context),
         ],
       ),
       bottomNavigationBar: isHiddenMode
@@ -701,6 +720,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icon(Icons.badge_outlined),
                     selectedIcon: Icon(Icons.badge),
                     label: 'Identity',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: Icon(Icons.account_balance_wallet),
+                    label: 'E-Wallet',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.folder_copy_outlined),
+                    selectedIcon: Icon(Icons.folder_copy),
+                    label: 'Docs',
                   ),
                 ],
               ),
@@ -777,6 +806,13 @@ class _HomeScreenState extends State<HomeScreen> {
             .toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
+        final networkNames = wallets
+            .map((wallet) => wallet.network?.trim() ?? '')
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
         final filterSegments = <ButtonSegment<String>>[
           const ButtonSegment<String>(value: 'all', label: Text('ALL')),
           ...categoryNames.map(
@@ -785,10 +821,11 @@ class _HomeScreenState extends State<HomeScreen> {
               label: Text(category.toUpperCase()),
             ),
           ),
-          const ButtonSegment<String>(value: 'visa', label: Text('VISA')),
-          const ButtonSegment<String>(
-            value: 'mastercard',
-            label: Text('MASTERCARD'),
+          ...networkNames.map(
+            (network) => ButtonSegment<String>(
+              value: network.toLowerCase(),
+              label: Text(network.toUpperCase()),
+            ),
           ),
         ];
 
@@ -1547,4 +1584,179 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+  Widget _buildEWalletsTab(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Consumer<EWalletProvider>(
+      builder: (context, provider, _) {
+        final items = provider.search(_searchQuery);
+        if (provider.items.isEmpty) {
+          return _buildEmptyState(context, "Belum ada e-wallet.\nTap '+' untuk menambahkan GoPay, OVO, DANA, ShopeePay, Akulaku, dll.");
+        }
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari e-wallet...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: _searchController.clear) : null,
+                  ),
+                ),
+              ),
+            ),
+            if (items.isEmpty)
+              SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(48), child: Center(child: Text('E-wallet tidak ditemukan.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black45)))))
+            else
+              SliverReorderableList(
+                itemCount: items.length,
+                onReorder: provider.reorderItems,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return ReorderableDelayedDragStartListener(
+                    key: ValueKey('ewallet-${item.id}'),
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Slidable(
+                        key: ValueKey(item.id),
+                        startActionPane: ActionPane(
+                          motion: const BehindMotion(),
+                          extentRatio: .25,
+                          children: [
+                            SlidableAction(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.blue,
+                              icon: Icons.edit_outlined,
+                              label: 'Edit',
+                              onPressed: (ctx) async {
+                                final changed = await Navigator.push<bool>(ctx, SmoothPageRoute(page: EWalletEditScreen(item: item)));
+                                if (changed == true && ctx.mounted) await ctx.read<EWalletProvider>().fetchItems();
+                              },
+                            ),
+                          ],
+                        ),
+                        endActionPane: ActionPane(
+                          motion: const BehindMotion(),
+                          extentRatio: .25,
+                          children: [
+                            SlidableAction(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.red,
+                              icon: Icons.delete_outline_rounded,
+                              label: 'Delete',
+                              onPressed: (_) async => provider.deleteItem(item.id!),
+                            ),
+                          ],
+                        ),
+                        child: EWalletCard(
+                          item: item,
+                          onTap: () async {
+                            final changed = await Navigator.push<bool>(context, SmoothPageRoute(page: EWalletDetailScreen(item: item)));
+                            if (changed == true && mounted) await provider.fetchItems();
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDocumentsTab(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Consumer<DocumentProvider>(
+      builder: (context, provider, _) {
+        final items = provider.search(_searchQuery);
+        if (provider.items.isEmpty) {
+          return _buildEmptyState(context, "Belum ada dokumen.\nTap '+' untuk menyimpan ijazah, sertifikat, PDF, DOCX, dan dokumen A4.");
+        }
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari dokumen...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: _searchController.clear) : null,
+                  ),
+                ),
+              ),
+            ),
+            if (items.isEmpty)
+              SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(48), child: Center(child: Text('Dokumen tidak ditemukan.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black45)))))
+            else
+              SliverReorderableList(
+                itemCount: items.length,
+                onReorder: provider.reorderItems,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return ReorderableDelayedDragStartListener(
+                    key: ValueKey('document-${item.id}'),
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+                      child: Slidable(
+                        key: ValueKey(item.id),
+                        startActionPane: ActionPane(
+                          motion: const BehindMotion(),
+                          extentRatio: .25,
+                          children: [
+                            SlidableAction(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.blue,
+                              icon: Icons.edit_outlined,
+                              label: 'Edit',
+                              onPressed: (ctx) async {
+                                final changed = await Navigator.push<bool>(ctx, SmoothPageRoute(page: DocumentEditScreen(item: item)));
+                                if (changed == true && ctx.mounted) await ctx.read<DocumentProvider>().fetchItems();
+                              },
+                            ),
+                          ],
+                        ),
+                        endActionPane: ActionPane(
+                          motion: const BehindMotion(),
+                          extentRatio: .25,
+                          children: [
+                            SlidableAction(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.red,
+                              icon: Icons.delete_outline_rounded,
+                              label: 'Delete',
+                              onPressed: (_) async => provider.deleteItem(item.id!),
+                            ),
+                          ],
+                        ),
+                        child: DocumentVaultCard(
+                          item: item,
+                          onTap: () async {
+                            final changed = await Navigator.push<bool>(context, SmoothPageRoute(page: DocumentDetailScreen(item: item)));
+                            if (changed == true && mounted) await provider.fetchItems();
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        );
+      },
+    );
+  }
+
 }

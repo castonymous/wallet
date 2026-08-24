@@ -19,6 +19,8 @@ class AppInitializationService {
       DatabaseHelper.instance.database,
       PassDatabaseHelper.instance.database,
       IdentityDatabaseHelper.instance.database,
+      EWalletDatabaseHelper.instance.database,
+      DocumentDatabaseHelper.instance.database,
     ]);
 
     // One-time migration: encrypt any existing plaintext data in the databases.
