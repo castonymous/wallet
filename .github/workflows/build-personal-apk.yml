@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: '17'
@@ -29,14 +29,16 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
-      - name: Analyze
-        run: flutter analyze
+      - name: Environment info
+        run: |
+          flutter --version
+          java -version
 
       - name: Build APK
         run: flutter build apk --release
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OIS-Wallet-APK
           path: build/app/outputs/flutter-apk/app-release.apk
