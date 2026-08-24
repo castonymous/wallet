@@ -65,7 +65,7 @@ class DocumentVaultCard extends StatelessWidget {
                       '${item.category} • ${item.fileType.toUpperCase()} • ${item.orientation}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white45 : Colors.black45),
+                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white.withValues(alpha: .45) : Colors.black45),
                     ),
                   ],
                 ),
