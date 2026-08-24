@@ -24,3 +24,13 @@ This fork keeps the original local/offline encryption foundation and changes the
 - Identity database: version 3 -> 4 (`category`, `displayMode`).
 
 No INTERNET permission was added. The existing encrypted image storage and biometric/security foundation are retained.
+
+## 1.2.0 - NFC bank-card quick add
+
+- Added Android NFC permission with NFC hardware marked optional.
+- Added read-only EMV NFC scanning to the bank-card form.
+- NFC can fill the PAN/card number and expiry when the issuing card exposes them.
+- After scanning, users can keep only the last four digits (default action) or intentionally use the full PAN.
+- The scanner intentionally ignores PIN, CVV/CVC, cryptographic keys, transaction history, counters, and other EMV diagnostic fields.
+- Card network is detected from the scanned PAN.
+- NFC is used locally; no INTERNET permission was added.
