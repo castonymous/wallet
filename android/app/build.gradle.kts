@@ -16,9 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.oisgrafika.wallet"
-    // receive_sharing_intent 1.9.x requires Android API 37 at compile time.
-    // targetSdk stays independent and continues to follow Flutter defaults.
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
