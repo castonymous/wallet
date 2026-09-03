@@ -54,3 +54,30 @@ No INTERNET permission was added. The existing encrypted image storage and biome
 ## v1.3.1 build fix
 - Fixed invalid Flutter color constant `Colors.white45` in Document Vault.
 - Replaced it with `Colors.white.withValues(alpha: 0.45)`.
+
+## OIS Finance 2.0.0 — Finance Super App
+
+- Added encrypted finance ledger with accounts for bank, e-wallet, cash, brankas, laci/kas, receh, debit, credit card, PayLater, loans and custom accounts.
+- Added income, expense and account-to-account transfer flows. Transfers are excluded from income/expense totals.
+- Added personal debt/receivable records with contacts, WhatsApp shortcut, proof images, partial payments and payment history.
+- Added credit card / PayLater / loan center with limits, balances, statement dates, due dates and installment schedules.
+- Added Indonesian cash denomination counter and balance reconciliation.
+- Added monthly budgets, savings/sinking-fund goals and recurring transactions.
+- Added finance calendar, global search, tags, monthly category analytics and net-worth snapshots.
+- Added CSV/TXT/XLSX statement importer.
+- Added offline screenshot OCR using Android ML Kit and Share-to-OIS Finance intake.
+- Added optional Android notification-listener parser that creates reviewable transaction drafts instead of silently posting transactions.
+- Added Android home-screen widgets for balance/net worth, quick expense/income/transfer entry and nearest due date, including privacy mode.
+- Added Finance data and encrypted finance attachments to the encrypted backup/restore flow.
+- Main navigation is now Home / Finance / Wallet / Vault / More.
+
+### Final static sweep
+
+- Fixed invalid Map iteration in Finance transaction/debt filter chips (`Map.entries`).
+- Fixed nullable `ByteArray?` write in Android file export.
+- Removed duplicate/obsolete Android plugin registration and unnecessary AndroidX notification-manager dependency.
+- Aligned Android compile SDK with the Flutter SDK and set minSdk 23 for the bundled on-device OCR dependency.
+- Removed fragile internal AGP APK-output mutation code.
+- Added an explicit manifest merger rule to remove INTERNET permission even if a dependency requests it.
+- Validated local Dart imports, XML resources/IDs, YAML files, asset paths, delimiter/string/bracket balance, and invalid Flutter color constants.
+- Personal GitHub Action now runs `flutter analyze --no-fatal-warnings --no-fatal-infos` before the APK build.
