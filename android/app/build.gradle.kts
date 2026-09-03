@@ -3,6 +3,7 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -15,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.oisgrafika.wallet"
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -31,11 +32,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.oisgrafika.wallet"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -71,24 +71,19 @@ android {
         }
     }
 
-    applicationVariants.all {
-        val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
-            val abiName = output.getFilter(com.android.build.OutputFile.ABI)
-            val abiCode = abiCodes[abiName]
-            if (abiCode != null) {
-                output.versionCodeOverride = (variant.versionCode) * 100 + abiCode
-            }
-        }
-    }
+
 }
 
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+
+dependencies {
+    // On-device OCR for Indonesian bank/e-wallet screenshots. No runtime internet permission is required.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
 
 flutter {

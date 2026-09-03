@@ -1,0 +1,4 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_due_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:gravity="center_vertical" android:background="@drawable/widget_bg">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="JATUH TEMPO TERDEKAT" android:textSize="10sp" android:textStyle="bold" android:textColor="#66000000"/>
+    <TextView android:id="@+id/widget_due_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tidak ada jatuh tempo" android:textSize="13sp" android:textStyle="bold" android:textColor="#FF111111" android:layout_marginTop="5dp" android:maxLines="2"/>
+</LinearLayout>

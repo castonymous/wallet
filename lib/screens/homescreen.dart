@@ -42,7 +42,8 @@ class SmoothPageRoute<T> extends PageRouteBuilder<T> {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int? initialIndex;
+  const HomeScreen({super.key, this.initialIndex});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -78,7 +79,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Initialize selected index from startup settings
       final startupProvider = context.read<StartupSettingsProvider>();
-      if (startupProvider.paymentsOnlyMode) {
+      if (widget.initialIndex != null) {
+        setState(() => _selectedIndex = widget.initialIndex!.clamp(0, 4).toInt());
+      } else if (startupProvider.paymentsOnlyMode) {
         setState(() => _selectedIndex = 0);
       } else {
         setState(() => _selectedIndex = startupProvider.defaultScreenIndex);

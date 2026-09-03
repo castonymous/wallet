@@ -81,7 +81,8 @@ class DocumentVaultCard extends StatelessWidget {
 
 class DocumentEditScreen extends StatefulWidget {
   final DocumentItem? item;
-  const DocumentEditScreen({super.key, this.item});
+  final String? initialFilePath;
+  const DocumentEditScreen({super.key, this.item, this.initialFilePath});
 
   @override
   State<DocumentEditScreen> createState() => _DocumentEditScreenState();
@@ -104,6 +105,13 @@ class _DocumentEditScreenState extends State<DocumentEditScreen> {
     _category = TextEditingController(text: widget.item?.category ?? 'Dokumen');
     _notes = TextEditingController(text: widget.item?.notes ?? '');
     _orientation = widget.item?.orientation ?? 'portrait';
+    final initialPath = widget.initialFilePath;
+    if (widget.item == null && initialPath != null && initialPath.isNotEmpty) {
+      final source = File(initialPath);
+      _pickedFile = source;
+      _pickedName = p.basename(initialPath);
+      if (_title.text.trim().isEmpty) _title.text = p.basenameWithoutExtension(initialPath);
+    }
   }
 
   @override

@@ -409,7 +409,7 @@ class EWalletDetailScreen extends StatelessWidget {
             ListTile(leading: const Icon(Icons.notes_rounded), title: const Text('Catatan'), subtitle: Text(item.notes)),
           const SizedBox(height: 8),
           Text(
-            'Saldo dan limit bersifat manual karena OIS Wallet tetap offline dan tidak terhubung ke akun layanan.',
+            'Saldo dan limit bersifat manual karena OIS Finance tetap offline dan tidak terhubung ke akun layanan.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

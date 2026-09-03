@@ -1,9 +1,7 @@
 package com.oisgrafika.wallet
 
-import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugins.GeneratedPluginRegistrant
 import android.view.WindowManager
 import android.os.Bundle
 import io.flutter.plugin.common.MethodChannel
@@ -18,7 +16,6 @@ import android.os.Build
 import android.content.ContentValues
 import android.app.Activity
 import android.net.Uri
-import java.io.OutputStream
 import android.provider.DocumentsContract
 
 class MainActivity: FlutterFragmentActivity() 
@@ -26,16 +23,15 @@ class MainActivity: FlutterFragmentActivity()
     private val CHANNEL = "com.oisgrafika.wallet/save_file"
     private var pendingBytes: ByteArray? = null
     private var pendingResult: MethodChannel.Result? = null
-    private var pendingFilename: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
       super.onCreate(savedInstanceState)
       window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
-    override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) 
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) 
       {
-        GeneratedPluginRegistrant.registerWith(flutterEngine) 
+        super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
           when (call.method) {
             "savePkpass" -> {
@@ -204,7 +200,7 @@ class MainActivity: FlutterFragmentActivity()
                     putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                   }
-                  startActivity(Intent.createChooser(sendIntent, "Share from OIS Wallet"))
+                  startActivity(Intent.createChooser(sendIntent, "Share from OIS Finance"))
                   result.success(true)
                 } catch (e: Exception) {
                   result.error("SHARE_FAILED", e.message, null)
@@ -214,7 +210,13 @@ class MainActivity: FlutterFragmentActivity()
             else -> result.notImplemented()
           }
         }
+        FinanceNativeBridge.setup(this, flutterEngine)
       }
+
+    override fun onNewIntent(intent: Intent) {
+      super.onNewIntent(intent)
+      setIntent(intent)
+    }
 
     private fun buildChildUri(treeUri: Uri, filename: String): Uri {
       val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
@@ -240,10 +242,15 @@ class MainActivity: FlutterFragmentActivity()
             val uri = data.data
             if (uri != null) {
               try {
-                contentResolver.openOutputStream(uri)?.use { outputStream ->
-                  outputStream.write(pendingBytes)
+                val bytes = pendingBytes
+                if (bytes == null) {
+                  pendingResult?.error("SAVE_FAILED", "No pending file data", null)
+                } else {
+                  contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(bytes)
+                  } ?: throw Exception("Unable to open output stream")
+                  pendingResult?.success(uri.toString())
                 }
-                pendingResult?.success(uri.toString())
               } catch (e: Exception) {
                 pendingResult?.error("SAVE_FAILED", e.message, null)
               }

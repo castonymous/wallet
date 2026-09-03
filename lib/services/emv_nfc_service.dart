@@ -27,7 +27,7 @@ class NfcBankCardData {
 
 /// Read-only EMV NFC helper used only to speed up adding a user's own card.
 ///
-/// OIS Wallet intentionally keeps only the fields needed by the wallet form.
+/// OIS Finance intentionally keeps only the fields needed by the wallet form.
 /// It does not retain or expose PIN, CVV/CVC, cryptographic keys, transaction
 /// history, counters, or other EMV diagnostic fields returned by the plugin.
 class EmvNfcService {

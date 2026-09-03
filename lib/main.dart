@@ -8,7 +8,8 @@ import 'package:wallet/services/app_initialization_service.dart';
 import 'package:wallet/services/encryption_service.dart';
 import 'models/auto_backup_provider.dart';
 import 'models/provider_helper.dart';
-import 'screens/homescreen.dart';
+import 'screens/super_app_shell.dart';
+import 'models/finance_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wallet/services/auto_backup_service.dart';
 import 'dart:io' show Platform;
@@ -37,6 +38,7 @@ void main() async {
         ChangeNotifierProvider(create: (context) => IdentityProvider()),
         ChangeNotifierProvider(create: (context) => EWalletProvider()),
         ChangeNotifierProvider(create: (context) => DocumentProvider()),
+        ChangeNotifierProvider(create: (context) => FinanceProvider()..initialize()),
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: startupProvider),
         ChangeNotifierProvider.value(value: autoBackupProvider),
@@ -87,7 +89,7 @@ class _MyAppState extends State<MyApp> {
           listen: false,
         );
         return MaterialApp(
-          title: 'OIS Wallet',
+          title: 'OIS Finance',
           debugShowCheckedModeBanner: false,
           theme: themeProvider.lightTheme,
           darkTheme: themeProvider.darkTheme,
@@ -182,7 +184,7 @@ class _SplashScreenState extends State<SplashScreen>
         context,
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
-              const HomeScreen(),
+              const SuperAppShell(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return child;
           },
@@ -281,7 +283,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       children: [
                         Text(
-                          'WALLET',
+                          'OIS FINANCE',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -291,7 +293,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Secure • Simple • Smart',
+                          'Wallet • Finance • Vault',
                           style: TextStyle(
                             fontSize: 14,
                             color: isDark ? Colors.white54 : Colors.black45,
