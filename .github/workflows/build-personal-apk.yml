@@ -34,12 +34,15 @@ jobs:
           flutter --version
           java -version
 
+      - name: Analyze source
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
       - name: Build APK
         run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: OIS-Wallet-APK
+          name: OIS-Finance-APK
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
